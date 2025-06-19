@@ -26,7 +26,8 @@ def summarize_text(text: str, api_key: str) -> str:
         return response.choices[0].message.content.strip()
     except OpenAIError as e:
         # Gracefully handle API errors and rate limits
-        print(f"Warning: LLM call failed: {e}. Using stub summary.")
+        # handle logs + API errors and rate limits
+        print(f"!!! Warning: LLM call failed: {e}. Using stub summary.")
         return "[Stub summary due to API error]"
 
 
