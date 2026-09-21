@@ -8,10 +8,20 @@ def load_api_key():
     return os.getenv("OPENAI_API_KEY") or None
 
 
-def summarize_text(text: str, api_key: str) -> str:
+def truncate_to_max_words(text: str, max_words: int) -> str:
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return " ".join(words[:max_words])
+
+
+def summarize_text(text: str, api_key: str, max_words: int = None) -> str:
     # If no real key, return stub for testing
     if api_key is None:
-        return "[Stub summary for testing]"
+        summary = "[Stub summary for testing]"
+        if max_words is not None:
+            summary = truncate_to_max_words(summary, max_words)
+        return summary
     openai.api_key = api_key
     try:
         response = openai.chat.completions.create(
@@ -23,12 +33,16 @@ def summarize_text(text: str, api_key: str) -> str:
             max_tokens=200,
             temperature=0.2,
         )
-        return response.choices[0].message.content.strip()
+        summary = response.choices[0].message.content.strip()
     except OpenAIError as e:
         # Gracefully handle API errors and rate limits
         # handle logs + API errors and rate limits
         print(f"!!! Warning: LLM call failed: {e}. Using stub summary.")
-        return "[Stub summary due to API error]"
+        summary = "[Stub summary due to API error]"
+
+    if max_words is not None:
+        summary = truncate_to_max_words(summary, max_words)
+    return summary
 
 
 def main():
@@ -36,6 +50,13 @@ def main():
         description="Summarize meeting notes via LLM"
     )
     parser.add_argument("file", help="Path to notes.txt")
+    parser.add_argument(
+        "--max-words",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Cap the summary to at most N words",
+    )
     args = parser.parse_args()
 
     try:
@@ -48,11 +69,8 @@ def main():
     api_key = load_api_key()
     if api_key is None:
         print("Warning: No API key found. Using stub summary.")
-        summary = "[Stub summary for testing]"
-    else:
-        summary = summarize_text(notes, api_key)
 
-    summary = summarize_text(notes, api_key)
+    summary = summarize_text(notes, api_key, max_words=args.max_words)
 
     print("Summary:")
     print(summary)
